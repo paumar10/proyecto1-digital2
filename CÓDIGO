@@ -1,0 +1,72 @@
+//******************************************/
+// Universidad del Valle de Guatemala
+// BE3029 - Electronica Digital 2
+// Paulina Martínez
+// 01/09/2025
+// Proyecto #1: Sensor de temperatura
+// MCU: ESP32 dev kit 1.1
+//******************************************/
+
+//******************************************/
+// Librerias
+//******************************************/
+#include <Arduino.h>
+#include <stdint.h>
+#include <Servo.h>
+
+//******************************************/
+// Definiciones
+//******************************************/
+//Sensor de temperatura en pin ADC
+#define sensortemp 34
+//Botón para detectar el cambio de temperatura
+#define boton 22
+//Leds para el semáforo
+#define led_v 5 //Led verde
+#define led_a 19 //Led amarilla
+#define led_r 21 //Led roja
+//Segmentos del display
+#define dA 13
+#define dB 27
+#define dC 16
+#define dD 18
+#define dE 35
+#define dF 34
+#define dG 23
+#define dP 17 //Punto decimal 
+//Display (3)
+#define display1 32
+#define display2 26
+#define display3 14
+
+//Servo
+#define pin_servo 2
+
+//******************************************/
+// Prototipos de funciones
+//******************************************/
+
+//******************************************/
+// Variables globales
+//******************************************/
+
+//******************************************/
+// ISRs Rutinas de Interrupcion
+//******************************************/
+
+//******************************************/
+// Configuracion
+//******************************************/
+void setup() {
+  // put your setup code here, to run once:
+  
+}
+//******************************************/
+// Loop Principal
+//******************************************/
+void loop() {
+  // put your main code here, to run repeatedly:
+}
+//******************************************/
+// Otras funciones
+//******************************************/
