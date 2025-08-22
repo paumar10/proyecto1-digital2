@@ -12,19 +12,19 @@
 //******************************************/
 #include <Arduino.h>
 #include <stdint.h>
-#include <Servo.h>
-
+#include <ESP32Servo.h>
+#include <driver/ledc.h>
 //******************************************/
 // Definiciones
 //******************************************/
 //Sensor de temperatura en pin ADC
 #define sensortemp 34
 //Botón para detectar el cambio de temperatura
-#define boton 22
+#define boton 22 //En pull down 
 //Leds para el semáforo
-#define led_v 5 //Led verde
-#define led_a 19 //Led amarilla
-#define led_r 21 //Led roja
+#define LED_V 5 //Led verde
+#define LED_A 19 //Led amarilla
+#define LED_R 21 //Led roja
 //Segmentos del display
 #define dA 13
 #define dB 27
@@ -38,35 +38,124 @@
 #define display1 32
 #define display2 26
 #define display3 14
-
 //Servo
-#define pin_servo 2
+#define pinservo 2
 
 //******************************************/
 // Prototipos de funciones
 //******************************************/
+//Prototipo de funciones para actualizar los estados de los leds
+void actualizarpwm();
+
+//Prototipo de funciones para actualizar el movimiento del servo
+void moverservo();
 
 //******************************************/
 // Variables globales
 //******************************************/
+//Variables para cambio de color de leds
+typedef enum color {rojo=0, amarillo, verde, modoservo} color;
+volatile color colorActual = rojo;
+
+//Variables para hacer cambios de ángulos
+typedef enum angulos {s0, s1, s2} angulos;
+volatile uint8_t posicionservo = 0;
+
+//Variables para el antirrebote del boton
+const long tiempo = 100;
+volatile uint32_t lastboton = 0;
 
 //******************************************/
 // ISRs Rutinas de Interrupcion
 //******************************************/
+//Prototipo de función para configurar el PWM
+void initPWM_V();
+void initPWM_R();
+void initPWM_A();
+void initPWM_servo();
+
+//Prototipo de función para el botón con ISR
+void initboton();
+void IRAM_ATTR boton_ISR();
 
 //******************************************/
 // Configuracion
 //******************************************/
+//Configuración del PWM: channels
+#define pwmChannel_R 0
+#define pwmChannel_A 1
+#define pwmChannel_V 2
+#define pwmChannel_servo 3
+
+//Configuración del PWM:frecuencia
+#define freqpwm 50
+
+//Configuración del PWM: resolución
+#define respwm 10
 void setup() {
-  // put your setup code here, to run once:
+  //Inicio de comunicación serial
+  Serial.begin(115200);
+
+  //Definición de pines de entrada y salida
+  pinMode(boton, INPUT_PULLDOWN);
+  pinMode(LED_A, OUTPUT);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_V, OUTPUT);
   
+  //Inicialización de funciones PWM
+  initPWM_A();
+  initPWM_R();
+  initPWM_V();
+  initPWM_servo();
+
+  //Inicialización de configuración de ISR
+  initboton();
+
+  //Configuración inicial del servo
+  posicionservo=0;
+  moverservo();
+
 }
 //******************************************/
 // Loop Principal
 //******************************************/
 void loop() {
-  // put your main code here, to run repeatedly:
+  //Actualización de leds
+  actualizarpwm();
+
+  //Actualización del servo
+  moverservo();
 }
 //******************************************/
 // Otras funciones
 //******************************************/
+//Funciones del PWM
+void initPWM_A(){
+  ledcSetup(pwmChannel_A, freqpwm, respwm);
+  ledcAttachPin(LED_A, pwmChannel_A);
+}
+
+void initPWM_R(){
+  ledcSetup(pwmChannel_R, freqpwm, respwm);
+  ledcAttachPin(LED_R, pwmChannel_R);
+}
+
+void initPWM_V(){
+  ledcSetup(pwmChannel_V, freqpwm, respwm);
+  ledcAttachPin(LED_V, pwmChannel_V);
+}
+
+void initPWM_servo(){
+  ledcSetup(pwmChannel_servo, freqpwm, respwm);
+  ledcAttachPin(pinservo, pwmChannel_servo);
+}
+
+//Función de inicialización del botón 
+void initboton(){
+  attachInterrupt(digitalPinToInterrupt(boton), boton_ISR, RISING);
+}
+
+//Función ISR para el botón
+void IRAM_ATTR boton_ISR(){
+  
+}
