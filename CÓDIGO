@@ -73,16 +73,17 @@ typedef enum angulos {s0, s1, s2} angulos;
 volatile uint8_t posicionservo = 0;
 
 //Variables para el antirrebote del boton
-const long tiempo = 100;
+const long tiempo = 200;
+volatile bool lectura = false;
 volatile uint32_t lastboton = 0;
 
 //Lectura del adc
-int adcRAW;
+int adcRAW=0;
 
 //Variable para lectura del sensor de temperatura
-float promedioLecturas;
-float temp;
-float voltaje;
+float promedioLecturas=0;
+float temp=0;
+float voltaje=0;
 
 //******************************************/
 // ISRs Rutinas de Interrupcion
@@ -116,19 +117,16 @@ void setup() {
   //Inicio de comunicación serial
   Serial.begin(115200);
 
-  //Definición de pines de entrada y salida
+  //Definición del botón como pin de entrada
   pinMode(boton, INPUT_PULLDOWN);
-  pinMode(LED_A, OUTPUT);
-  pinMode(LED_R, OUTPUT);
-  pinMode(LED_V, OUTPUT);
-  
+
   //Inicialización de funciones PWM
   initPWM_A();
   initPWM_R();
   initPWM_V();
   initPWM_servo();
 
-  //Inicialización de configuración de ISR
+  //Inicialización el botón
   initboton();
 
   //Configuración inicial del servo
@@ -140,20 +138,25 @@ void setup() {
 // Loop Principal
 //******************************************/
 void loop() {
-  //Lectura del sensor de temperatura
-  adcraw();
-  adcpromedio();
-  Serial.print("Promedio: ");
-  Serial.println(promedioLecturas);
-  Serial.print("ADC RAW: ");
-  Serial.println(adcRAW);
-  Serial.print("Voltaje: ");
-  Serial.println(voltaje);
-  Serial.print("Temperatura (°C): ");
-  Serial.println(temp);
-  delay(1000);
+  //Lectura del sensor de temperatura con botón
+  if(lectura){
+    adcraw();
+    adcpromedio();
+    /*Serial.print("Promedio: ");
+    Serial.println(promedioLecturas);
+    Serial.print("ADC RAW: ");
+    Serial.println(adcRAW);
+    Serial.print("Voltaje: ");
+    Serial.println(voltaje);*/
+    Serial.print("Temperatura (°C): ");
+    Serial.println(temp);
+    actualizarpwm(temp);
+    //delay(1000);
+    lectura=false;
+  }
+
   //Actualización de leds
-  actualizarpwm(temp);
+  //actualizarpwm(temp);
 
   //Actualización del servo
   //moverservo();
@@ -191,7 +194,7 @@ void initboton(){
 void IRAM_ATTR boton_ISR(){
   uint32_t tiempoactual = millis();
   if (tiempoactual - lastboton > tiempo) {
-    actualizarpwm(temp);
+    lectura=true;
     lastboton=tiempoactual;
   }
 }
@@ -223,10 +226,10 @@ void actualizarpwm(float temp){
   if (temp<22) {
     ledcWrite(pwmChannel_V, 255);
   }
-  if (temp>=22 && temp<25){
+  else if (temp>=22 && temp<25){
     ledcWrite(pwmChannel_A, 255);
   }
-  if (temp>=25){
+  else if (temp>=25){
     ledcWrite(pwmChannel_R, 255);
   }
 }
