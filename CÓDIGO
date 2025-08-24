@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <ESP32Servo.h>
 #include <driver/ledc.h>
+#include <driver/adc.h>
 //******************************************/
 // Definiciones
 //******************************************/
@@ -30,8 +31,8 @@
 #define dB 27
 #define dC 16
 #define dD 18
-#define dE 35
-#define dF 34
+#define dE 25
+#define dF 33
 #define dG 23
 #define dP 17 //Punto decimal 
 //Display (3)
@@ -41,21 +42,31 @@
 //Servo
 #define pinservo 2
 
+
 //******************************************/
 // Prototipos de funciones
 //******************************************/
 //Prototipo de funciones para actualizar los estados de los leds
-void actualizarpwm();
+void actualizarpwm(float temp);
 
 //Prototipo de funciones para actualizar el movimiento del servo
-void moverservo();
+void moverservo(void);
+
+//Prototipo de funciones para actualizar el display
+void actualizardisplay(void);
+void digitostemp(void);
+void initpinsdisplay(void);
+
+//Prototipo de funciones para lectura del ADC
+void adcpromedio(void);
+void adcraw(void);
 
 //******************************************/
 // Variables globales
 //******************************************/
 //Variables para cambio de color de leds
-typedef enum color {rojo=0, amarillo, verde, modoservo} color;
-volatile color colorActual = rojo;
+//typedef enum color {rojo=0, amarillo, verde} color;
+//volatile color colorActual = rojo;
 
 //Variables para hacer cambios de ángulos
 typedef enum angulos {s0, s1, s2} angulos;
@@ -64,6 +75,14 @@ volatile uint8_t posicionservo = 0;
 //Variables para el antirrebote del boton
 const long tiempo = 100;
 volatile uint32_t lastboton = 0;
+
+//Lectura del adc
+int adcRAW;
+
+//Variable para lectura del sensor de temperatura
+float promedioLecturas;
+float temp;
+float voltaje;
 
 //******************************************/
 // ISRs Rutinas de Interrupcion
@@ -92,6 +111,7 @@ void IRAM_ATTR boton_ISR();
 
 //Configuración del PWM: resolución
 #define respwm 10
+
 void setup() {
   //Inicio de comunicación serial
   Serial.begin(115200);
@@ -113,18 +133,30 @@ void setup() {
 
   //Configuración inicial del servo
   posicionservo=0;
-  moverservo();
+  //moverservo();
 
 }
 //******************************************/
 // Loop Principal
 //******************************************/
 void loop() {
+  //Lectura del sensor de temperatura
+  adcraw();
+  adcpromedio();
+  Serial.print("Promedio: ");
+  Serial.println(promedioLecturas);
+  Serial.print("ADC RAW: ");
+  Serial.println(adcRAW);
+  Serial.print("Voltaje: ");
+  Serial.println(voltaje);
+  Serial.print("Temperatura (°C): ");
+  Serial.println(temp);
+  delay(1000);
   //Actualización de leds
-  actualizarpwm();
+  actualizarpwm(temp);
 
   //Actualización del servo
-  moverservo();
+  //moverservo();
 }
 //******************************************/
 // Otras funciones
@@ -157,5 +189,44 @@ void initboton(){
 
 //Función ISR para el botón
 void IRAM_ATTR boton_ISR(){
-  
+  uint32_t tiempoactual = millis();
+  if (tiempoactual - lastboton > tiempo) {
+    actualizarpwm(temp);
+    lastboton=tiempoactual;
+  }
+}
+//Funciones para ADC
+//ADC raw
+void adcraw(){
+  adcRAW=analogRead(sensortemp);
+}
+
+//Promedio de lecturas para evitar ruido
+void adcpromedio(){
+  int numeroLecturas=10;
+  int sumaLecturas=0;
+  for (int k=0; k<numeroLecturas; k++){
+    sumaLecturas+=analogRead(sensortemp);
+    delay(1);
+  }
+  promedioLecturas=sumaLecturas/(numeroLecturas*1.0);
+  voltaje = promedioLecturas*(5/4095.0); 
+  temp = (voltaje*100)+7; //Corrimiento de lectura para arreglar la escala del sensor
+}
+
+
+//Funciones del semáforo
+void actualizarpwm(float temp){
+  ledcWrite(pwmChannel_A, 0);
+  ledcWrite(pwmChannel_V, 0);
+  ledcWrite(pwmChannel_R, 0);
+  if (temp<22) {
+    ledcWrite(pwmChannel_V, 255);
+  }
+  if (temp>=22 && temp<25){
+    ledcWrite(pwmChannel_A, 255);
+  }
+  if (temp>=25){
+    ledcWrite(pwmChannel_R, 255);
+  }
 }
