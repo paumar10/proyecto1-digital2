@@ -50,7 +50,7 @@
 void actualizarpwm(float temp);
 
 //Prototipo de funciones para actualizar el movimiento del servo
-void moverservo(void);
+void moverservo(float temp);
 
 //Prototipo de funciones para actualizar el display
 void actualizardisplay(void);
@@ -151,6 +151,7 @@ void loop() {
     Serial.print("Temperatura (°C): ");
     Serial.println(temp);
     actualizarpwm(temp);
+    moverservo(temp);
     //delay(1000);
     lectura=false;
   }
@@ -233,3 +234,17 @@ void actualizarpwm(float temp){
     ledcWrite(pwmChannel_R, 255);
   }
 }
+
+void moverservo (float temp){
+  int duty = 51;
+  if (temp<22){
+    duty = 77;
+  }
+  else if (temp>=22 && temp<25){
+    duty=77;
+  }
+  else if (temp>=25){
+    duty=102;
+  }
+  ledcWrite(pwmChannel_servo, duty);
+}}
