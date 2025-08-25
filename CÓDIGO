@@ -16,8 +16,6 @@
 #include <driver/ledc.h>
 #include <driver/adc.h>
 #include "Display.h"
-#include "config.h"
-#include "AdafruitIO_WiFi.h"
 //******************************************/
 // Definiciones
 //******************************************/
@@ -29,7 +27,7 @@
 #define LED_V 5 //Led verde
 #define LED_A 19 //Led amarilla
 #define LED_R 21 //Led roja
-/*Segmentos del display
+//Segmentos del display
 #define dA 13
 #define dB 27
 #define dC 16
@@ -37,13 +35,14 @@
 #define dE 25
 #define dF 33
 #define dG 23
-#define dP 17 //Punto decimal*/
-//Definición de displays(3)
+#define dP 17 //Punto decimal 
+//Display (3)
 #define display1 32
 #define display2 26
 #define display3 14
 //Servo
 #define pinservo 2
+
 
 //******************************************/
 // Prototipos de funciones
@@ -55,10 +54,8 @@ void actualizarpwm(float temp);
 void moverservo(float temp);
 
 //Prototipo de funciones para actualizar el display
-void actualizardisplay(float temp);
+void actualizardisplay(float temperatura);
 void multiplexdisplay(void);
-//void digitostemp(void);
-//void initpinsdisplay(void);
 
 //Prototipo de funciones para lectura del ADC
 void adcpromedio(void);
@@ -71,8 +68,8 @@ void adcraw(void);
 //typedef enum color {rojo=0, amarillo, verde} color;
 //volatile color colorActual = rojo;
 
-//Variables para hacer cambios de ángulos
-typedef enum angulos {s0, s1, s2} angulos;
+/*Variables para hacer cambios de ángulos
+typedef enum angulos {s0, s1, s2} angulos;*/
 volatile uint8_t posicionservo = 0;
 
 //Variables para el antirrebote del boton
@@ -83,10 +80,15 @@ volatile uint32_t lastboton = 0;
 //Lectura del adc
 int adcRAW=0;
 
-//Variable para lectura del sensor de temperatura
+//Variables para lectura del sensor de temperatura
 float promedioLecturas=0;
 float temp=0.0;
 float voltaje=0;
+
+//Variables para el display
+int decena = 0;
+int unidad = 0;
+int decimal =0;
 
 //******************************************/
 // ISRs Rutinas de Interrupcion
@@ -116,9 +118,6 @@ void IRAM_ATTR boton_ISR();
 //Configuración del PWM: resolución
 #define respwm 10
 
-//Configuración de adafruit
-AdafruitIO_Feed *canaltemp = io.feed("Temperatura - proyecto 1 - digital 2");
-
 void setup() {
   //Inicio de comunicación serial
   Serial.begin(115200);
@@ -147,51 +146,43 @@ void setup() {
 
   //Configuración inicial del servo
   posicionservo=0;
-  //moverservo();
 
-  //Inicialización del display
+  //Configuración del display
   configDisplay7();
 
-  //Conexión a adafruit
-  while(!Serial);
-  Serial.print("Conectando a Adafruit");
-  io.connect();
-  while(io.status()<AIO_CONNECTED){
-    Serial.print(".");
-    delay(500);
-  }
-  //Adafruit conectado
-  Serial.println();
-  Serial.println(io.statusText());
 
 }
 //******************************************/
 // Loop Principal
 //******************************************/
 void loop() {
-//Corremos adafruit
-io.run();
-
   //Lectura del sensor de temperatura con botón
   if(lectura){
-    //Obtención de datos solo al presionar el botón
     adcraw();
     adcpromedio();
+    /*Serial.print("Promedio: ");
+    Serial.println(promedioLecturas);
+    Serial.print("ADC RAW: ");
+    Serial.println(adcRAW);
+    Serial.print("Voltaje: ");
+    Serial.println(voltaje);*/
     Serial.print("Temperatura (°C): ");
     Serial.println(temp);
-    //Actualización del semáforo
     actualizarpwm(temp);
-    //Movimiento del servo
     moverservo(temp);
-    //Actualización del display
     actualizardisplay(temp);
     //delay(1000);
-    Serial.print("Sending ->");
-    Serial.println(temp);
-    canaltemp->save(temp);
-    delay(3000);
     lectura=false;
   }
+
+  //Mostrar siempre los valores del display
+  multiplexdisplay();
+
+  //Actualización de leds
+  //actualizarpwm(temp);
+
+  //Actualización del servo
+  //moverservo();
 }
 //******************************************/
 // Otras funciones
@@ -250,7 +241,7 @@ void adcpromedio(){
 }
 
 
-//Función del semáforo
+//Funciones del semáforo
 void actualizarpwm(float temp){
   ledcWrite(pwmChannel_A, 0);
   ledcWrite(pwmChannel_V, 0);
@@ -266,7 +257,7 @@ void actualizarpwm(float temp){
   }
 }
 
-//Función del servo
+//Función para mover el servo
 void moverservo (float temp){
   int duty = 51;
   if (temp<22){
@@ -281,71 +272,35 @@ void moverservo (float temp){
   ledcWrite(pwmChannel_servo, duty);
 }
 
-//Función del display
-void actualizardisplay(float temp){
-  int numero=int(temp*10);
+//Función para el display
+void actualizardisplay(float temperatura){
+  int numero=(int)roundf(temperatura*10.0f);
   if (numero>999){
     numero=999;
   }
-  int decenas=numero/100;
-  int unidades=(temp-(decenas*100))/10;
-  int decimal=temp-(unidades*10);
-  unsigned long tiempodisplay=millis();
-}
-
-/*void multiplexdisplay(){
-  static unsigned long last= 0;
-  static int estado = 0;
-  if (millis()-last>3){
-    switch (estado){
-      case 0:
-        digitalWrite(display1,HIGH);
-        digitalWrite(display2,LOW);
-        digitalWrite(display3,LOW);
-        desplegarNumero(decenas);
-        desplegarPunto(0);
-        break;
-      case 1:
-        digitalWrite(display1,LOW);
-        digitalWrite(display2,HIGH);
-        digitalWrite(display3,LOW);
-        desplegarNumero(unidades);
-        desplegarPunto(1); // punto en la unidad
-        break;
-      case 2:
-        digitalWrite(display1,LOW);
-        digitalWrite(display2,LOW);
-        digitalWrite(display3,HIGH);
-        desplegarNumero(decimal);
-        desplegarPunto(0);
-        break;
-    //default:
-      //break;
-    }
-    estado=(estado+1)%3;
+  if (numero<0){
+    numero=0;
   }
-}*/
-/* while(millis()-tiempodisplay<500){
-    //Escritura de centenas con punto
+  decena=numero/100;
+  unidad=(numero/10)%10;
+  decimal=(numero%10);;
+  unsigned long tiempodisplay=millis();
+  while(millis()-tiempodisplay<500){
+    //Display 1
     digitalWrite(display1, HIGH);
     digitalWrite(display2, LOW);
     digitalWrite(display3, LOW);
-    //if (decenas<0 || temp<10){
-    desplegarNumero(decenas);
-    //}
-    else{
-      desplegarNumero(0);
-    }
+    desplegarNumero(decena);
     desplegarPunto(0);
     delay(3);
-    //Escritura de decenas
+    //Display 2
     digitalWrite(display1, LOW);
     digitalWrite(display2, HIGH);
     digitalWrite(display3, LOW);
-    desplegarNumero(unidades);
+    desplegarNumero(unidad);
     desplegarPunto(1);
     delay(3);
-    //Escritura de unidades
+    //Display 3
     digitalWrite(display1, LOW);
     digitalWrite(display2, LOW);
     digitalWrite(display3, HIGH);
@@ -353,7 +308,34 @@ void actualizardisplay(float temp){
     desplegarPunto(0);
     delay(3);
   }
-  /*Apagar displays
-  digitalWrite(display1,HIGH);
-  digitalWrite(display2,HIGH);
-  digitalWrite(display3,HIGH);*/
+  /*digitalWrite(display1, HIGH);
+  digitalWrite(display2, HIGH);
+  digitalWrite(display3, HIGH);
+  /apagarDisplay7();*/
+}
+
+void multiplexdisplay(void){
+  //Display 1
+  digitalWrite(display1, HIGH);
+  digitalWrite(display2, LOW);
+  digitalWrite(display3, LOW);
+  desplegarNumero(decena);
+  desplegarPunto(0);
+  delay(3);
+
+  //Display 2
+  digitalWrite(display1, LOW);
+  digitalWrite(display2, HIGH);
+  digitalWrite(display3, LOW);
+  desplegarNumero(unidad);
+  desplegarPunto(1);
+  delay(3);
+
+  //Display 3
+  digitalWrite(display1, LOW);
+  digitalWrite(display2, LOW);
+  digitalWrite(display3, HIGH);
+  desplegarNumero(decimal);
+  desplegarPunto(0);
+  delay(3);
+}
