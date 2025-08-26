@@ -28,14 +28,14 @@
 #define LED_A 19 //Led amarilla
 #define LED_R 21 //Led roja
 //Segmentos del display
-#define dA 13
+/*#define dA 13
 #define dB 27
 #define dC 16
 #define dD 18
 #define dE 25
 #define dF 33
 #define dG 23
-#define dP 17 //Punto decimal 
+#define dP 17 //Punto decimal */
 //Display (3)
 #define display1 32
 #define display2 26
@@ -130,10 +130,19 @@ void setup() {
   pinMode(display2, OUTPUT);
   pinMode(display3, OUTPUT);
 
+  /*pinMode(dA, OUTPUT);
+  pinMode(dB, OUTPUT);
+  pinMode(dC, OUTPUT);
+  pinMode(dD, OUTPUT);
+  pinMode(dE, OUTPUT);
+  pinMode(dF, OUTPUT);
+  pinMode(dG, OUTPUT);
+  pinMode(dP, OUTPUT);*/
+
   //Apagar displays - como inicializarlos
-  digitalWrite(display1, LOW);
-  digitalWrite(display2, LOW);
-  digitalWrite(display3, LOW);
+  digitalWrite(display1, HIGH);
+  digitalWrite(display2, HIGH);
+  digitalWrite(display3, HIGH);
 
   //Inicialización de funciones PWM
   initPWM_A();
@@ -283,9 +292,9 @@ void actualizardisplay(float temperatura){
   }
   decena=numero/100;
   unidad=(numero/10)%10;
-  decimal=(numero%10);;
-  unsigned long tiempodisplay=millis();
-  while(millis()-tiempodisplay<500){
+  decimal=(numero%10);
+  //unsigned long tiempodisplay=millis();
+  //while(millis()-tiempodisplay<500){
     //Display 1
     digitalWrite(display1, HIGH);
     digitalWrite(display2, LOW);
@@ -307,35 +316,29 @@ void actualizardisplay(float temperatura){
     desplegarNumero(decimal);
     desplegarPunto(0);
     delay(3);
-  }
-  /*digitalWrite(display1, HIGH);
-  digitalWrite(display2, HIGH);
-  digitalWrite(display3, HIGH);
-  /apagarDisplay7();*/
+  //}
+  Serial.printf("Digitos: %d %d.%d\n", decena, unidad, decimal);
 }
 
 void multiplexdisplay(void){
-  //Display 1
   digitalWrite(display1, HIGH);
-  digitalWrite(display2, LOW);
-  digitalWrite(display3, LOW);
-  desplegarNumero(decena);
-  desplegarPunto(0);
-  delay(3);
-
-  //Display 2
-  digitalWrite(display1, LOW);
-  digitalWrite(display2, HIGH);
-  digitalWrite(display3, LOW);
-  desplegarNumero(unidad);
-  desplegarPunto(1);
-  delay(3);
-
-  //Display 3
-  digitalWrite(display1, LOW);
-  digitalWrite(display2, LOW);
-  digitalWrite(display3, HIGH);
-  desplegarNumero(decimal);
-  desplegarPunto(0);
-  delay(3);
+    digitalWrite(display2, LOW);
+    digitalWrite(display3, LOW);
+    desplegarNumero(decena);
+    desplegarPunto(0);
+    delay(3);
+    //Display 2
+    digitalWrite(display1, LOW);
+    digitalWrite(display2, HIGH);
+    digitalWrite(display3, LOW);
+    desplegarNumero(unidad);
+    desplegarPunto(1);
+    delay(3);
+    //Display 3
+    digitalWrite(display1, LOW);
+    digitalWrite(display2, LOW);
+    digitalWrite(display3, HIGH);
+    desplegarNumero(decimal);
+    desplegarPunto(0);
+    delay(3);
 }
