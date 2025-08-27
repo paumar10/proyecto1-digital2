@@ -47,7 +47,7 @@ void moverservo(float temp);
 
 //Prototipo de funciones para actualizar el display
 void actualizardisplay(float temperatura);
-void multiplexdisplay(void);
+//void multiplexdisplay(void);
 
 //Prototipo de funciones para lectura del ADC
 void adcpromedio(void);
@@ -75,6 +75,11 @@ int decena = 0;
 int unidad = 0;
 int decimal =0;
 
+//Timer para multiplexado de display
+hw_timer_t *timer0=NULL;
+volatile int digito=0;
+
+
 //******************************************/
 // ISRs Rutinas de Interrupcion
 //******************************************/
@@ -83,6 +88,10 @@ void initPWM_V();
 void initPWM_R();
 void initPWM_A();
 void initPWM_servo();
+
+//Prototipo de función para configurar el timer de multiplex con ISR
+void initmultiplexdisplay();
+void IRAM_ATTR multiplexdisplay();
 
 //Prototipo de función para el botón con ISR
 void initboton();
@@ -150,6 +159,9 @@ void setup() {
   //Configuración del display
   configDisplay7();
 
+  //Inicializar timer
+  initmultiplexdisplay();
+
 
 }
 //******************************************/
@@ -184,7 +196,7 @@ void loop() {
   }
 
   //Mostrar siempre los valores del display
-  multiplexdisplay();
+  //multiplexdisplay();
 }
 //******************************************/
 // Otras funciones
@@ -289,25 +301,40 @@ void actualizardisplay(float temperatura){
   Serial.printf("Digitos: %d %d.%d\n", decena, unidad, decimal);
 }
 
-void multiplexdisplay(void){
-  digitalWrite(display1, HIGH);
+//Inicializar display
+void initmultiplexdisplay(void){
+  timer0 = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer0, &multiplexdisplay, true);
+  timerAlarmWrite(timer0, 20000, true); //cambio del contador cada 250 ms
+  timerAlarmEnable(timer0);
+}
+//Multiplex display
+void IRAM_ATTR multiplexdisplay(void){
+  if (digito == 0) {
+    // Display 1
+    digitalWrite(display1, HIGH);
     digitalWrite(display2, LOW);
     digitalWrite(display3, LOW);
     desplegarNumero(decena);
     desplegarPunto(0);
-    
-    //Display 2
+    digito = 1;   
+  }
+  else if (digito == 1) {
+    // Display 2
     digitalWrite(display1, LOW);
     digitalWrite(display2, HIGH);
     digitalWrite(display3, LOW);
     desplegarNumero(unidad);
     desplegarPunto(1);
-    
-    //Display 3
+    digito = 2;   
+  }
+  else {
+    // Display 3
     digitalWrite(display1, LOW);
     digitalWrite(display2, LOW);
     digitalWrite(display3, HIGH);
     desplegarNumero(decimal);
     desplegarPunto(0);
-    
-} 
+    digito = 0;   
+  }
+}
