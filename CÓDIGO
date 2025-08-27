@@ -295,19 +295,19 @@ void multiplexdisplay(void){
     digitalWrite(display3, LOW);
     desplegarNumero(decena);
     desplegarPunto(0);
-    delay(1);
+    
     //Display 2
     digitalWrite(display1, LOW);
     digitalWrite(display2, HIGH);
     digitalWrite(display3, LOW);
     desplegarNumero(unidad);
     desplegarPunto(1);
-    delay(1);
+    
     //Display 3
     digitalWrite(display1, LOW);
     digitalWrite(display2, LOW);
     digitalWrite(display3, HIGH);
     desplegarNumero(decimal);
     desplegarPunto(0);
-    delay(1);
+    
 } 
