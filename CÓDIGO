@@ -28,12 +28,13 @@
 #define LED_V 5 //Led verde
 #define LED_A 19 //Led amarilla
 #define LED_R 21 //Led roja
-//Definición de displays(3)
-#define display1 32 //decenas
-#define display2 26 //unidades
-#define display3 14 //decimales
+//Display (3)
+#define display1 32
+#define display2 26
+#define display3 14
 //Servo
 #define pinservo 2
+
 
 //******************************************/
 // Prototipos de funciones
@@ -47,19 +48,14 @@ void moverservo(float temp);
 //Prototipo de funciones para actualizar el display
 void actualizardisplay(float temperatura);
 void multiplexdisplay(void);
-//void digitostemp(void);
-//void initpinsdisplay(void);
 
 //Prototipo de funciones para lectura del ADC
 void adcpromedio(void);
 void adcraw(void);
 
-
 //******************************************/
 // Variables globales
 //******************************************/
-//Variables para movimiento del servo
-volatile uint8_t posicionservo = 0;
 
 //Variables para el antirrebote del boton
 const long tiempo = 200;
@@ -69,15 +65,15 @@ volatile uint32_t lastboton = 0;
 //Lectura del adc
 int adcRAW=0;
 
-//Variable para lectura del sensor de temperatura
+//Variables para lectura del sensor de temperatura
 float promedioLecturas=0;
 float temp=0.0;
 float voltaje=0;
 
 //Variables para el display
-int decena =0;
-int unidad=0;
-int decimal=0;
+int decena = 0;
+int unidad = 0;
+int decimal =0;
 
 //******************************************/
 // ISRs Rutinas de Interrupcion
@@ -113,13 +109,11 @@ unsigned long lastUpdate = 0;
 AdafruitIO_Feed *canaltemp = io.feed("temperatura-proyecto");
 AdafruitIO_Feed *canalLED = io.feed("led");
 
-
 void setup() {
-  
   //Inicio de comunicación serial
   Serial.begin(115200);
 
-  //Conexión a adafruit
+   //Conexión a adafruit
   while(! Serial);
   Serial.print("Conectando a Adafruit");
   io.connect();
@@ -153,61 +147,45 @@ void setup() {
   //Inicialización el botón
   initboton();
 
-  //Configuración inicial del servo
-  posicionservo=0;
-  //moverservo();
-
-  //Inicialización del display
+  //Configuración del display
   configDisplay7();
+
 
 }
 //******************************************/
 // Loop Principal
 //******************************************/
 void loop() {
-//Corremos adafruit
-io.run();
-
-if (millis() > (lastUpdate + IO_LOOP_DELAY)) {
-  Serial.print("sending -> ");
-  Serial.println(temp);
-  canaltemp->save(temp);
-  lastUpdate = millis();
-}
-
+  //Corremos adafruit
+  io.run();
 
   //Lectura del sensor de temperatura con botón
   if(lectura){
-    //Obtención de datos solo al presionar el botón
     adcraw();
     adcpromedio();
     Serial.print("Temperatura (°C): ");
     Serial.println(temp);
-    //Actualización del semáforo
     actualizarpwm(temp);
-    //Movimiento del servo
     moverservo(temp);
-    //Actualización del display
     actualizardisplay(temp);
-    //delay(1000);
     Serial.print("Sending ->");
     Serial.println(temp);
     canaltemp->save(temp);
     if (temp<22){
-      canalLED->save("#288e23");
+      canalLED->save((String)"#288e23");
     }
     else if (temp>=22 && temp<25){
-      canalLED->save("#d0e213");
+      canalLED->save((String)"#d0e213");
     }
-    else if (temp<=25){
-      canalLED->save("#882522");
+    else if (temp>=25){
+      canalLED->save((String)"#882522");
     }
     lectura=false;
   }
+
   //Mostrar siempre los valores del display
   multiplexdisplay();
 }
-
 //******************************************/
 // Otras funciones
 //******************************************/
@@ -246,7 +224,7 @@ void IRAM_ATTR boton_ISR(){
   }
 }
 //Funciones para ADC
-//ADC sin filtrado
+//ADC raw
 void adcraw(){
   adcRAW=analogRead(sensortemp);
 }
@@ -261,11 +239,11 @@ void adcpromedio(){
   }
   promedioLecturas=sumaLecturas/(numeroLecturas*1.0);
   voltaje = promedioLecturas*(5/4095.0); 
-  temp = (voltaje*100); 
+  temp = (voltaje*100);//Corrimiento de lectura para arreglar la escala del sensor
 }
 
 
-//Función del semáforo
+//Funciones del semáforo
 void actualizarpwm(float temp){
   ledcWrite(pwmChannel_A, 0);
   ledcWrite(pwmChannel_V, 0);
@@ -281,57 +259,35 @@ void actualizarpwm(float temp){
   }
 }
 
-//Función del servo
+//Función para mover el servo
 void moverservo (float temp){
   int duty = 0;
   if (temp<22){
-    duty = 51;
+    duty = 26;
   }
   else if (temp>=22 && temp<25){
     duty=77;
   }
   else if (temp>=25){
-    duty=102;
+    duty=120;
   }
   ledcWrite(pwmChannel_servo, duty);
 }
 
-//Función del display
+//Función para el display
 void actualizardisplay(float temperatura){
-  uint8_t numero=(uint8_t)roundf(temperatura*10.0f);
+  int numero=(int)roundf(temperatura*10.0f);
   if (numero>999){
     numero=999;
   }
   if (numero<0){
     numero=0;
   }
-  uint8_t decena=numero/100;
-  uint8_t unidad=(numero/10)%10;
-  uint8_t decimal=(numero%10);;
-  //Display 1
-  digitalWrite(display1, HIGH);
-  digitalWrite(display2, LOW);
-  digitalWrite(display3, LOW);
-  desplegarNumero(decena);
-  desplegarPunto(0);
-  delay(3);
-  //Display 2
-  digitalWrite(display1, LOW);
-  digitalWrite(display2, HIGH);
-  digitalWrite(display3, LOW);
-  desplegarNumero(unidad);
-  desplegarPunto(1);
-  delay(3);
-  //Display 3
-  digitalWrite(display1, LOW);
-  digitalWrite(display2, LOW);
-  digitalWrite(display3, HIGH);
-  desplegarNumero(decimal);
-  desplegarPunto(0);
-  delay(3);
+  decena=numero/100;
+  unidad=(numero/10)%10;
+  decimal=(numero%10);
   Serial.printf("Digitos: %d %d.%d\n", decena, unidad, decimal);
 }
-
 
 void multiplexdisplay(void){
   digitalWrite(display1, HIGH);
@@ -339,19 +295,19 @@ void multiplexdisplay(void){
     digitalWrite(display3, LOW);
     desplegarNumero(decena);
     desplegarPunto(0);
-    delay(3);
+    delay(1);
     //Display 2
     digitalWrite(display1, LOW);
     digitalWrite(display2, HIGH);
     digitalWrite(display3, LOW);
     desplegarNumero(unidad);
     desplegarPunto(1);
-    delay(3);
+    delay(1);
     //Display 3
     digitalWrite(display1, LOW);
     digitalWrite(display2, LOW);
     digitalWrite(display3, HIGH);
     desplegarNumero(decimal);
     desplegarPunto(0);
-    delay(3);
+    delay(1);
 } 
