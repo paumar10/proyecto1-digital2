@@ -52,6 +52,12 @@ void actualizardisplay(float temperatura);
 void adcpromedio(void);
 void adcraw(void);
 
+//Prototipo de función para configurar el PWM de los leds y el servo
+void initPWM_V();
+void initPWM_R();
+void initPWM_A();
+void initPWM_servo();
+
 //******************************************/
 // Variables globales
 //******************************************/
