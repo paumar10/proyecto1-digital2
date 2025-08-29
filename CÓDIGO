@@ -15,20 +15,20 @@
 #include <ESP32Servo.h>
 #include <driver/ledc.h>
 #include <driver/adc.h>
-#include "Display.h"
-#include "config.h"
+#include "Display.h" //Librería propia correspondiente al dislay
+#include "config.h" //Librería propia correspondiente a Adafruit
 //******************************************/
 // Definiciones
 //******************************************/
 //Sensor de temperatura en pin ADC
 #define sensortemp 34
 //Botón para detectar el cambio de temperatura
-#define boton 22 //En pull down 
+#define boton 22 //En pull down interno
 //Leds para el semáforo
 #define LED_V 5 //Led verde
 #define LED_A 19 //Led amarilla
 #define LED_R 21 //Led roja
-//Display (3)
+//Displays (3)
 #define display1 32
 #define display2 26
 #define display3 14
@@ -39,17 +39,16 @@
 //******************************************/
 // Prototipos de funciones
 //******************************************/
-//Prototipo de funciones para actualizar los estados de los leds
+//Prototipo de funciones para actualizar los colores de las leds dependiendo de la temperatura leída al presionar el botón
 void actualizarpwm(float temp);
 
-//Prototipo de funciones para actualizar el movimiento del servo
+//Prototipo de funciones para actualizar el movimiento del servo dependiendo de la temperatura leída al presionar el botón
 void moverservo(float temp);
 
-//Prototipo de funciones para actualizar el display
+//Prototipo de funciones para actualizar el display dependiendo de la temperatura leída al presionar el botón
 void actualizardisplay(float temperatura);
-//void multiplexdisplay(void);
 
-//Prototipo de funciones para lectura del ADC
+//Prototipo de funciones para lectura del sensor de temperatura (en pin ADC)
 void adcpromedio(void);
 void adcraw(void);
 
@@ -62,15 +61,15 @@ const long tiempo = 200;
 volatile bool lectura = false;
 volatile uint32_t lastboton = 0;
 
-//Lectura del adc
+//Variable para lectura del ADC
 int adcRAW=0;
 
 //Variables para lectura del sensor de temperatura
-float promedioLecturas=0;
-float temp=0.0;
-float voltaje=0;
+float promedioLecturas=0; //promedio, para filtrar la señal
+float temp=0.0; //temperatura
+float voltaje=0; //conversión del voltaje 
 
-//Variables para el display
+//Variables para el dígito en cada uno de los displays
 int decena = 0;
 int unidad = 0;
 int decimal =0;
@@ -83,7 +82,7 @@ volatile int digito=0;
 //******************************************/
 // ISRs Rutinas de Interrupcion
 //******************************************/
-//Prototipo de función para configurar el PWM
+//Prototipo de función para configurar el PWM de los leds y el servo
 void initPWM_V();
 void initPWM_R();
 void initPWM_A();
@@ -115,8 +114,8 @@ void IRAM_ATTR boton_ISR();
 //Configuración de adafruit
 #define IO_LOOP_DELAY 5000
 unsigned long lastUpdate = 0;
-AdafruitIO_Feed *canaltemp = io.feed("temperatura-proyecto");
-AdafruitIO_Feed *canalLED = io.feed("led");
+AdafruitIO_Feed *canaltemp = io.feed("temperatura-proyecto"); //Canal mediante el que se actualiza el gráfico y la escala
+AdafruitIO_Feed *canalLED = io.feed("led"); //Canal mediante el que se actualiza el color picker (acorde al color del led)
 
 void setup() {
   //Inicio de comunicación serial
@@ -134,7 +133,7 @@ void setup() {
   Serial.println();
   Serial.println(io.statusText());
 
-  //Definición del botón como pin de entrada
+  //Definición del botón como input
   pinMode(boton, INPUT_PULLDOWN);
 
   //Definición de displays como output
@@ -142,7 +141,7 @@ void setup() {
   pinMode(display2, OUTPUT);
   pinMode(display3, OUTPUT);
 
-  //Apagar displays - como inicializarlos
+  //Apagar displays (para inicializarlos) - es ánodo común
   digitalWrite(display1, HIGH);
   digitalWrite(display2, HIGH);
   digitalWrite(display3, HIGH);
@@ -169,39 +168,44 @@ void setup() {
 //******************************************/
 void loop() {
   //Corremos adafruit
-  io.run();
+  //io.run();
 
-  //Lectura del sensor de temperatura con botón
+  //Lectura del sensor de temperatura solo al presionar el botón
   if(lectura){
+    //Corremos adafruit al presionar el botón
+    io.run();
+    //Actualizamos la lectura del sensor, tanto raw como filtrada, al presionar el botón
     adcraw();
     adcpromedio();
+    //Se imprimen las temperaturas en el monitor serial
     Serial.print("Temperatura (°C): ");
     Serial.println(temp);
+    //Actualización de leds, el servo y la conversión de digítos en el display dependiendo del rango de temperatura
     actualizarpwm(temp);
     moverservo(temp);
     actualizardisplay(temp);
+    //Enviamos la información de temperatura al canal de temperatura en Adafruit, para actualizar la gráfica y la escala, dependiendo de los rangos de temperatura
     Serial.print("Sending ->");
     Serial.println(temp);
+    //Enviamos la información de temperatura al canal de led en Adafruit, para cambiar el color del color picker, dependiendo de los rangos de temperatura
     canaltemp->save(temp);
     if (temp<22){
-      canalLED->save((String)"#288e23");
+      canalLED->save((String)"#288e23"); //Verde si temp<22°C
     }
     else if (temp>=22 && temp<25){
-      canalLED->save((String)"#d0e213");
+      canalLED->save((String)"#d0e213"); //Amarillo si 22°C<temp<25°C
     }
     else if (temp>=25){
-      canalLED->save((String)"#882522");
+      canalLED->save((String)"#882522"); //Rojo si temp>25°C
     }
     lectura=false;
   }
 
-  //Mostrar siempre los valores del display
-  //multiplexdisplay();
 }
 //******************************************/
 // Otras funciones
 //******************************************/
-//Funciones del PWM
+//Funciones para el PWM de los leds y el servo
 void initPWM_A(){
   ledcSetup(pwmChannel_A, freqpwm, respwm);
   ledcAttachPin(LED_A, pwmChannel_A);
@@ -236,12 +240,12 @@ void IRAM_ATTR boton_ISR(){
   }
 }
 //Funciones para ADC
-//ADC raw
+//Función para leer el sensor de temperatura - ADC raw
 void adcraw(){
   adcRAW=analogRead(sensortemp);
 }
 
-//Promedio de lecturas para evitar ruido
+//Función para obtener el promedio de lecturas de temperatura para evitar ruido y filtrar la señal
 void adcpromedio(){
   int numeroLecturas=10;
   int sumaLecturas=0;
@@ -250,43 +254,45 @@ void adcpromedio(){
     delay(1);
   }
   promedioLecturas=sumaLecturas/(numeroLecturas*1.0);
-  voltaje = promedioLecturas*(5/4095.0); 
-  temp = (voltaje*100);//Corrimiento de lectura para arreglar la escala del sensor
+  voltaje = promedioLecturas*(5/4095.0); //El ESP32 se conecto a 5V, por el voltaje necesario para el correcto funcionamiento del sensor 
+  temp = (voltaje*100);//Si el sensor lee temperaturas extranñas, se puede hacer un corrimiento de lectura para arreglar la escala del sensor
 }
 
 
-//Funciones del semáforo
+//Función PWM del semáforo con leds
 void actualizarpwm(float temp){
   ledcWrite(pwmChannel_A, 0);
   ledcWrite(pwmChannel_V, 0);
   ledcWrite(pwmChannel_R, 0);
+  //Configuración del ciclo de trabajo de cada led
   if (temp<22) {
-    ledcWrite(pwmChannel_V, 255);
+    ledcWrite(pwmChannel_V, 255); //Verde si temp<22°C
   }
   else if (temp>=22 && temp<25){
-    ledcWrite(pwmChannel_A, 255);
+    ledcWrite(pwmChannel_A, 255); //Amarillo si 22°C<temp<25°C
   }
   else if (temp>=25){
-    ledcWrite(pwmChannel_R, 255);
+    ledcWrite(pwmChannel_R, 255); //Rojo si temp>25°C 
   }
 }
 
 //Función para mover el servo
 void moverservo (float temp){
   int duty = 0;
-  if (temp<22){
-    duty = 26;
+  //Configuración del ciclo de trabajo del servo dependiendo de los rangos de temperatura - ángulos cálculados en base a la resolución
+  if (temp<22){ //Verde si temp<22°C
+    duty = 51;
   }
-  else if (temp>=22 && temp<25){
+  else if (temp>=22 && temp<25){ //Amarillo si 22°C<temp<25°C
     duty=77;
   }
   else if (temp>=25){
-    duty=120;
+    duty=102;
   }
-  ledcWrite(pwmChannel_servo, duty);
+  ledcWrite(pwmChannel_servo, duty); //Rojo si temp>25°C 
 }
 
-//Función para el display
+//Función para actualizar los dígitos de cada display 
 void actualizardisplay(float temperatura){
   int numero=(int)roundf(temperatura*10.0f);
   if (numero>999){
@@ -301,14 +307,14 @@ void actualizardisplay(float temperatura){
   Serial.printf("Digitos: %d %d.%d\n", decena, unidad, decimal);
 }
 
-//Inicializar display
+//Inicialización de los displays con timer para evitar parpadeos
 void initmultiplexdisplay(void){
   timer0 = timerBegin(0, 80, true);
   timerAttachInterrupt(timer0, &multiplexdisplay, true);
-  timerAlarmWrite(timer0, 20000, true); //cambio del contador cada 250 ms
+  timerAlarmWrite(timer0, 1000, true); //cambio del contador cada 1000 ms
   timerAlarmEnable(timer0);
 }
-//Multiplex display
+//Multiplex oara el display con timer e ISR para mantener la lectura y que no parpadee
 void IRAM_ATTR multiplexdisplay(void){
   if (digito == 0) {
     // Display 1
@@ -316,8 +322,8 @@ void IRAM_ATTR multiplexdisplay(void){
     digitalWrite(display2, LOW);
     digitalWrite(display3, LOW);
     desplegarNumero(decena);
-    desplegarPunto(0);
-    digito = 1;   
+    desplegarPunto(0); //No hay punto en este display
+    digito = 1; //Cambio al siguiente dígito (unidad)
   }
   else if (digito == 1) {
     // Display 2
@@ -325,8 +331,8 @@ void IRAM_ATTR multiplexdisplay(void){
     digitalWrite(display2, HIGH);
     digitalWrite(display3, LOW);
     desplegarNumero(unidad);
-    desplegarPunto(1);
-    digito = 2;   
+    desplegarPunto(1); //Hay punto en este display
+    digito = 2;   //Cambio al siguiente dígito (decimal)
   }
   else {
     // Display 3
@@ -334,7 +340,7 @@ void IRAM_ATTR multiplexdisplay(void){
     digitalWrite(display2, LOW);
     digitalWrite(display3, HIGH);
     desplegarNumero(decimal);
-    desplegarPunto(0);
-    digito = 0;   
+    desplegarPunto(0); //No hay punto en este display
+    digito = 0;   //Cambio al siguiente dígito (decena) - vuelve al inicio
   }
 }
